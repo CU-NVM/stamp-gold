@@ -1,5 +1,23 @@
-stamp
+stamp-gold
 =====
+
+___Notes___
+
+This is a "gold-plated" version of the STAMP benchmark
+widely used in transactional memory programming.  The intention
+is to include known bug fixes and simple extensions to avoid 
+redoing them each project.
+
+If you use STAMP in your project at CU-NVM, please update this
+repo!
+
+___Changes___
+* Include single-global lock "TM" version.
+
+
+
+
+
 
                     ____    _____      _      __  __   ____
                    / ___|  |_   _|    / \    |  \/  | |  _ \
