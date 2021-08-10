@@ -1,0 +1,16 @@
+*.o
+*.so
+*.a
+*.bin
+*.log
+*.out
+*~
+
+genome/genome
+intruder/intruder
+kmeans/kmeans
+labyrinth/labyrinth
+ssca2/ssca2
+vacation/vacation
+yada/yada
+bayes/bayes

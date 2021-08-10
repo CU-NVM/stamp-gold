@@ -84,6 +84,12 @@ static void            (*global_funcPtr)(void*) = NULL;
 static void*             global_argPtr          = NULL;
 static volatile bool_t   global_doShutdown      = FALSE;
 
+#ifdef SGL
+char padding1[128];
+pthread_mutex_t sgl =  PTHREAD_MUTEX_INITIALIZER;
+char padding2[128];
+#endif
+
 
 /* =============================================================================
  * threadWait

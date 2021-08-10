@@ -326,6 +326,151 @@
 #  endif /* !OTM */
 
 
+#elif defined(SGL)
+/*
+#if defined(__x86_64__) || defined(__x86_64)
+    #include <immintrin.h>
+    #include <x86intrin.h> // __rdtsc
+
+    #define HTM_SIMPLE_BEGIN()  _xbegin()
+    #define HTM_END()           _xend()
+    #define HTM_ABORT(c)        _xabort(c)
+    #define HTM_SUCCESSFUL      _XBEGIN_STARTED
+    #define HTM_IS_CONFLICT(c)  ((c) & _XABORT_CONFLICT)
+    #define HTM_IS_OVERFLOW(c)  ((c) & _XABORT_CAPACITY)
+    #define HTM_IS_ACTIVE()     _xtest()
+
+
+#elif defined(__powerpc64__) || defined(__ppc64__)
+    #include <htmintrin.h>
+
+    #define HTM_SIMPLE_BEGIN()  __builtin_tbegin(0)
+    #define HTM_END()           __builtin_tend(0)
+    #define HTM_ABORT(c)        __builtin_tabort(c)
+    #define HTM_SUCCESSFUL      1
+    #define HTM_SUSPEND()       __builtin_tsuspend()
+    #define HTM_RESUME()        __builtin_tresume()
+    // TODO:
+    //#define HTM_IS_CONFLICT(c)
+    //#define HTM_IS_OVERFLOW(c)
+    //rdtsc
+#else
+    #error "unsupported CPU"
+#endif
+struct _tas_lock_t {
+    union{
+        struct{
+            volatile int32_t val;
+            volatile int16_t ready;
+            volatile int16_t cnt;
+        };
+        volatile int64_t all;
+    };
+
+} __attribute__((__packed__));
+
+typedef struct _tas_lock_t tas_lock_t;
+
+#if defined(__powerpc__) || defined(__powerpc64__)
+    //#define HMT_very_low()   __asm volatile("or 31,31,31   # very low priority")
+    //static inline void cpu_relax() { HMT_very_low(); }
+    inline void cpu_relax() { __asm volatile("nop\n": : :"memory"); }
+#else
+    inline void cpu_relax() { __asm volatile("pause\n": : :"memory"); }
+#endif
+inline int spin_begin() { return 16; }
+inline int spin_wait(int s) {
+    for (int i=0; i<s; i++)
+        cpu_relax();
+    int n = 2 * s;
+    return n > 1024 ? 1024 : n;
+}
+inline int tatas(volatile int32_t* val, int32_t v) {
+    return *val || __sync_lock_test_and_set(val, v);
+}
+
+inline int enter_htm(){
+	if (HTM_SIMPLE_BEGIN() == HTM_SUCCESSFUL) {
+		return 0;
+	}
+	return 1;
+}
+
+inline int tas_lock_hle(void *lk) {
+  int tries = 0;
+  int s = spin_begin();
+	tas_lock_t* l = (tas_lock_t*)lk;
+	
+  while (enter_htm()) {
+    tries++;
+
+    if(tries>=5){
+      while (tatas(&l->val, 1)){s = spin_wait(s);}
+      break;
+    } else {
+      s = spin_wait(s);
+    }
+  }
+
+  // locked by other thread, waiting for abort
+  if (HTM_IS_ACTIVE() && l->val) {
+    while (1)
+     spin_wait(spin_begin());
+  }
+
+  return 0;
+}
+
+inline int tas_unlock_hle(void *lk) {
+	tas_lock_t* l = (tas_lock_t*)lk;
+  if (HTM_IS_ACTIVE()) { // in htm
+    HTM_END();
+  } else { // not in HTM
+    __sync_lock_release(&l->val);
+  }
+  return 0;
+}
+*/
+
+#  include <assert.h>
+#  include <pthread.h>
+#  include "memory.h"
+#  include "thread.h"
+#  include "types.h"
+
+extern pthread_mutex_t sgl; /* defined in lib/thread.c */
+
+#  define TM_ARG                        /* nothing */
+#  define TM_ARG_ALONE                  /* nothing */
+#  define TM_ARGDECL                    /* nothing */
+#  define TM_ARGDECL_ALONE              /* nothing */
+#  define TM_CALLABLE                   /* nothing */
+
+#  define TM_STARTUP(numThread)         do { \
+                                            bool_t status; \
+                                            status = memory_init((numThread), \
+                                                                 ((1<<30) / numThread), \
+                                                                 2); \
+                                            assert(status); \
+                                        } while (0); puts("SGL-TM")/* enforce comma */
+#  define TM_SHUTDOWN()                 /* nothing */
+
+#  define TM_THREAD_ENTER()             /* nothing */
+#  define TM_THREAD_EXIT()              /* nothing */
+
+#    define P_MALLOC(size)              memory_get(thread_getId(), size)
+#    define P_FREE(ptr)                 
+#    define TM_MALLOC(size)             memory_get(thread_getId(), size)
+#    define TM_FREE(ptr)                
+
+#    define TM_BEGIN()                    pthread_mutex_lock(&sgl) /* tas_lock_hle(sgl) */
+#    define TM_BEGIN_RO()                 pthread_mutex_lock(&sgl) /* tas_lock_hle(sgl) */
+#    define TM_END()                      pthread_mutex_unlock(&sgl) /* tas_unlock_hle(sgl) */
+#    define TM_RESTART()                  assert(0); exit(-1)
+#    define TM_EARLY_RELEASE(var)         /* nothing */
+
+
+
 /* =============================================================================
  * STM - Software Transactional Memory
  * =============================================================================
